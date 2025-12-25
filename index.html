@@ -1,49 +1,100 @@
-<div class="mt-8 border-t pt-6">
-    <input type="number" id="temp-input" placeholder="輸入新溫度" 
-           class="w-full border rounded-xl px-4 py-2 mb-3 text-center text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
-    <button onclick="updateTemp()" id="send-btn"
-            class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-xl transition-all active:scale-95">
-        送出更新
-    </button>
-</div>
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>溫度監控 Web App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen">
 
-<script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec";
-
-    // 原有的 fetchTemp 保持不變...
-
-    // 新增更新溫度的函式
-    async function updateTemp() {
-        const val = document.getElementById('temp-input').value;
-        const btn = document.getElementById('send-btn');
+    <div class="bg-white p-8 rounded-3xl shadow-lg text-center w-72 border border-slate-200">
+        <h1 class="text-slate-500 font-bold mb-4">目前環境溫度</h1>
         
-        if (!val) {
-            alert("請先輸入數值");
-            return;
+        <div id="temp-display" class="text-6xl font-black text-orange-500">--</div>
+        <div class="text-slate-400 mt-2 text-xl">°C</div>
+        
+        <button onclick="fetchTemp()" class="mt-4 text-blue-500 text-xs hover:underline">重新整理數值</button>
+
+        <div class="mt-8 border-t pt-6">
+            <input type="number" id="temp-input" placeholder="輸入新溫度" 
+                   class="w-full border rounded-xl px-4 py-2 mb-3 text-center text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
+            <button onclick="updateTemp()" id="send-btn"
+                    class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-xl transition-all active:scale-95">
+                送出更新
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 【重要】請更換為你的 GAS /exec 網址
+        const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec"; 
+
+        /**
+         * 功能一：從試算表「讀取」溫度
+         */
+        async function fetchTemp() {
+            const display = document.getElementById('temp-display');
+            display.innerText = "⏳";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    redirect: 'follow'
+                });
+                const data = await response.json();
+                
+                if (data.temperature !== undefined) {
+                    display.innerText = data.temperature;
+                }
+            } catch (error) {
+                console.error("讀取失敗:", error);
+                display.innerText = "ERR";
+            }
         }
 
-        btn.disabled = true;
-        btn.innerText = "傳送中...";
-
-        try {
-            // 將數值帶在網址參數 ?v= 後面
-            const response = await fetch(`${API_URL}?v=${val}`, {
-                method: 'GET',
-                redirect: 'follow'
-            });
-
-            const data = await response.json();
-            alert(data.result); // 顯示「成功更新為 XX」
+        /**
+         * 功能二：將新數值「寫入」試算表
+         */
+        async function updateTemp() {
+            const inputField = document.getElementById('temp-input');
+            const val = inputField.value;
+            const btn = document.getElementById('send-btn');
             
-            document.getElementById('temp-input').value = ""; // 清空輸入框
-            fetchTemp(); // 自動刷新上方顯示的溫度
-            
-        } catch (error) {
-            console.error("更新失敗:", error);
-            alert("更新失敗，請檢查網路或 GAS 設定");
-        } finally {
-            btn.disabled = false;
-            btn.innerText = "送出更新";
+            if (!val) {
+                alert("請先輸入數值");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerText = "傳送中...";
+
+            try {
+                // 透過網址參數 ?v= 傳送資料
+                const response = await fetch(`${API_URL}?v=${val}`, {
+                    method: 'GET',
+                    redirect: 'follow'
+                });
+
+                const data = await response.json();
+                alert(data.result); // 彈出成功訊息
+                
+                inputField.value = ""; // 清空輸入框
+                
+                // 關鍵點：更新成功後，呼叫功能一，讓畫面上的溫度跳成最新數值
+                fetchTemp(); 
+                
+            } catch (error) {
+                console.error("更新失敗:", error);
+                alert("更新失敗，請檢查網路或 GAS 設定");
+            } finally {
+                btn.disabled = false;
+                btn.innerText = "送出更新";
+            }
         }
-    }
-</script>
+
+        // 頁面初次載入時，先執行一次讀取
+        window.addEventListener('load', fetchTemp);
+    </script>
+</body>
+</html>
