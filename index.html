@@ -1,60 +1,49 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>溫度監控 Web App</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-slate-100 flex items-center justify-center min-h-screen">
+<div class="mt-8 border-t pt-6">
+    <input type="number" id="temp-input" placeholder="輸入新溫度" 
+           class="w-full border rounded-xl px-4 py-2 mb-3 text-center text-slate-700 focus:outline-none focus:ring-2 focus:ring-blue-400">
+    <button onclick="updateTemp()" id="send-btn"
+            class="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 rounded-xl transition-all active:scale-95">
+        送出更新
+    </button>
+</div>
 
-    <div class="bg-white p-8 rounded-3xl shadow-lg text-center w-64 border border-slate-200">
-        <h1 class="text-slate-500 font-bold mb-4">目前環境溫度</h1>
-        <div id="temp-display" class="text-6xl font-black text-orange-500">--</div>
-        <div class="text-slate-400 mt-2 text-xl">°C</div>
+<script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec";
+
+    // 原有的 fetchTemp 保持不變...
+
+    // 新增更新溫度的函式
+    async function updateTemp() {
+        const val = document.getElementById('temp-input').value;
+        const btn = document.getElementById('send-btn');
         
-        <button id="update-btn" onclick="fetchTemp()" class="mt-6 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white px-6 py-2 rounded-full text-sm font-bold transition-all shadow-md">
-            更新數值
-        </button>
-    </div>
-
-    <script>
-        // 【重要】請把下方引號內換成你的 GAS 部署網址 (需以 /exec 結尾)
-        const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec"; 
-
-        /**
-         * 抓取溫度的主要函式
-         * 使用 async 確保可以使用 await
-         */
-        async function fetchTemp() {
-            const display = document.getElementById('temp-display');
-            display.innerText = "⏳";
-
-            try {
-                // 加入 redirect: "follow" 是串接 GAS 的關鍵
-                const response = await fetch(API_URL, {
-                    method: 'GET',
-                    redirect: 'follow',
-                    headers: {
-                        'Content-Type': 'text/plain;charset=utf-8',
-                    }
-                });
-                
-                if (!response.ok) throw new Error("網路請求失敗");
-
-                const data = await response.json();
-                display.innerText = data.temperature;
-
-            } catch (error) {
-                console.error("CORS 或連線錯誤:", error);
-                display.innerText = "ERR";
-                // 如果還是 CORS 錯誤，通常是因為 GAS 部署後沒有選「新版本」
-            }
+        if (!val) {
+            alert("請先輸入數值");
+            return;
         }
 
-        // 頁面載入完成後自動執行一次
-        window.addEventListener('load', fetchTemp);
-    </script>
-</body>
-</html>
+        btn.disabled = true;
+        btn.innerText = "傳送中...";
 
+        try {
+            // 將數值帶在網址參數 ?v= 後面
+            const response = await fetch(`${API_URL}?v=${val}`, {
+                method: 'GET',
+                redirect: 'follow'
+            });
+
+            const data = await response.json();
+            alert(data.result); // 顯示「成功更新為 XX」
+            
+            document.getElementById('temp-input').value = ""; // 清空輸入框
+            fetchTemp(); // 自動刷新上方顯示的溫度
+            
+        } catch (error) {
+            console.error("更新失敗:", error);
+            alert("更新失敗，請檢查網路或 GAS 設定");
+        } finally {
+            btn.disabled = false;
+            btn.innerText = "送出更新";
+        }
+    }
+</script>
