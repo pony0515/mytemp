@@ -7,54 +7,66 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-100 flex items-center justify-center min-h-screen">
-    <div class="bg-white p-8 rounded-3xl shadow-lg text-center w-64">
+
+    <div class="bg-white p-8 rounded-3xl shadow-lg text-center w-64 border border-slate-200">
         <h1 class="text-slate-500 font-bold mb-4">目前環境溫度</h1>
         <div id="temp-display" class="text-6xl font-black text-orange-500">--</div>
-        <div class="text-slate-400 mt-2">°C</div>
-        <button onclick="fetchTemp()" class="mt-6 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm transition-colors">
+        <div class="text-slate-400 mt-2 text-xl">°C</div>
+        
+        <button id="update-btn" onclick="fetchTemp()" class="mt-6 bg-blue-500 hover:bg-blue-600 active:scale-95 text-white px-6 py-2 rounded-full text-sm font-bold transition-all shadow-md">
             更新數值
         </button>
     </div>
 
     <script>
-        // 1. 請務必確認這裡的 GAS 網址是正確的 /exec 結尾
+        // 【重要】請把下方引號內換成你的 GAS 部署網址 (需以 /exec 結尾)
         const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec"; 
 
-        // 2. 定義非同步函式 (必須有 async)
+        /**
+         * 抓取溫度的主要函式
+         * 使用 async 確保可以使用 await
+         */
         async function fetchTemp() {
             const display = document.getElementById('temp-display');
-            display.innerText = "⏳"; // 顯示載入中狀態
+            const btn = document.getElementById('update-btn');
+
+            // 1. 進入載入狀態
+            display.innerText = "⏳";
+            btn.disabled = true; // 防止重複點擊
+            btn.classList.add('opacity-50');
 
             try {
-                // 發起請求
+                // 2. 發送請求
                 const response = await fetch(API_URL);
                 
-                // 檢查回應是否成功
-                if (!response.ok) throw new Error("網路請求失敗");
+                // 3. 檢查 HTTP 狀態 (例如 404 或 500)
+                if (!response.ok) throw new Error("網路請求失敗: " + response.status);
 
+                // 4. 解析 JSON 資料
                 const data = await response.json();
-                console.log("成功抓取資料：", data);
+                console.log("資料接收成功:", data);
 
-                // 更新畫面
+                // 5. 更新介面
                 if (data.temperature !== undefined) {
                     display.innerText = data.temperature;
                 } else {
                     display.innerText = "??";
-                    console.error("JSON 格式中找不到 temperature 欄位");
+                    alert("格式錯誤：找不到 'temperature' 欄位");
                 }
 
             } catch (error) {
-                console.error("發生錯誤:", error);
-                display.innerText = "Err";
-                alert("無法讀取數據！\n請檢查 GAS 部署是否設為『所有人』，或網址是否正確。");
+                console.error("錯誤詳情:", error);
+                display.innerText = "ERR";
+                alert("抓取失敗！原因可能是：\n1. GAS 未設為「所有人」存取\n2. 網址輸入錯誤\n3. 網路連線中斷");
+            } finally {
+                // 6. 恢復按鈕狀態
+                btn.disabled = false;
+                btn.classList.remove('opacity-50');
             }
         }
 
-        // 3. 網頁開啟時自動執行一次
-        // 使用 window.addEventListener 確保 DOM 載入後才執行
-        window.addEventListener('load', () => {
-            fetchTemp();
-        });
+        // 頁面載入完成後自動執行一次
+        window.addEventListener('load', fetchTemp);
     </script>
 </body>
 </html>
