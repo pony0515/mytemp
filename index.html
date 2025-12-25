@@ -28,40 +28,27 @@
          */
         async function fetchTemp() {
             const display = document.getElementById('temp-display');
-            const btn = document.getElementById('update-btn');
-
-            // 1. 進入載入狀態
             display.innerText = "⏳";
-            btn.disabled = true; // 防止重複點擊
-            btn.classList.add('opacity-50');
 
             try {
-                // 2. 發送請求
-                const response = await fetch(API_URL);
+                // 加入 redirect: "follow" 是串接 GAS 的關鍵
+                const response = await fetch(API_URL, {
+                    method: 'GET',
+                    redirect: 'follow',
+                    headers: {
+                        'Content-Type': 'text/plain;charset=utf-8',
+                    }
+                });
                 
-                // 3. 檢查 HTTP 狀態 (例如 404 或 500)
-                if (!response.ok) throw new Error("網路請求失敗: " + response.status);
+                if (!response.ok) throw new Error("網路請求失敗");
 
-                // 4. 解析 JSON 資料
                 const data = await response.json();
-                console.log("資料接收成功:", data);
-
-                // 5. 更新介面
-                if (data.temperature !== undefined) {
-                    display.innerText = data.temperature;
-                } else {
-                    display.innerText = "??";
-                    alert("格式錯誤：找不到 'temperature' 欄位");
-                }
+                display.innerText = data.temperature;
 
             } catch (error) {
-                console.error("錯誤詳情:", error);
+                console.error("CORS 或連線錯誤:", error);
                 display.innerText = "ERR";
-                alert("抓取失敗！原因可能是：\n1. GAS 未設為「所有人」存取\n2. 網址輸入錯誤\n3. 網路連線中斷");
-            } finally {
-                // 6. 恢復按鈕狀態
-                btn.disabled = false;
-                btn.classList.remove('opacity-50');
+                // 如果還是 CORS 錯誤，通常是因為 GAS 部署後沒有選「新版本」
             }
         }
 
@@ -70,3 +57,4 @@
     </script>
 </body>
 </html>
+
