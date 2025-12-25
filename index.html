@@ -15,9 +15,7 @@
     </div>
 
     <script>
-        const API_URL = https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec; // <--- 貼上你剛才複製的網址
-
-        async function fetchTemp() {
+        const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec"; // <--- 貼上你剛才複製"        async function fetchTemp() {
             try {
                 const response = await fetch(API_URL);
                 const data = await response.json();
@@ -31,4 +29,5 @@
         fetchTemp();
     </script>
 </body>
+
 </html>
