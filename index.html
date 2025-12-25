@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>溫度監控 Web App</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-100 flex items-center justify-center min-h-screen">
+    <div class="bg-white p-8 rounded-3xl shadow-lg text-center w-64">
+        <h1 class="text-slate-500 font-bold mb-4">目前環境溫度</h1>
+        <div id="temp-display" class="text-6xl font-black text-orange-500">--</div>
+        <div class="text-slate-400 mt-2">°C</div>
+        <button onclick="fetchTemp()" class="mt-6 bg-blue-500 text-white px-4 py-2 rounded-full text-sm">更新數值</button>
+    </div>
+
+    <script>
+        const API_URL = https://script.google.com/macros/s/AKfycbzTJHrija1_ZRswajimkFt5umyVjAoursSlk4fa4yyGMQ5t0x8uEvioJ746e6UPdNCK/exec; // <--- 貼上你剛才複製的網址
+
+        async function fetchTemp() {
+            try {
+                const response = await fetch(API_URL);
+                const data = await response.json();
+                document.getElementById('temp-display').innerText = data.temperature;
+            } catch (e) {
+                console.error("抓取失敗", e);
+                alert("無法讀取數據，請確認 GAS 部署是否設為『所有人』");
+            }
+        }
+        // 網頁開啟時先跑一次
+        fetchTemp();
+    </script>
+</body>
+</html>
