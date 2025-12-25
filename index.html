@@ -11,23 +11,50 @@
         <h1 class="text-slate-500 font-bold mb-4">目前環境溫度</h1>
         <div id="temp-display" class="text-6xl font-black text-orange-500">--</div>
         <div class="text-slate-400 mt-2">°C</div>
-        <button onclick="fetchTemp()" class="mt-6 bg-blue-500 text-white px-4 py-2 rounded-full text-sm">更新數值</button>
+        <button onclick="fetchTemp()" class="mt-6 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-full text-sm transition-colors">
+            更新數值
+        </button>
     </div>
 
     <script>
-        const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec"; // <--- 貼上你剛才複製"        async function fetchTemp() {
+        // 1. 請務必確認這裡的 GAS 網址是正確的 /exec 結尾
+        const API_URL = "https://script.google.com/macros/s/AKfycbyFA4nL46y0vHmhuhLHCuTjDokrhPOdBOofcXORO5uUGp8N7GpSVv4Z4CpiqqyMFqOg/exec"; 
+
+        // 2. 定義非同步函式 (必須有 async)
+        async function fetchTemp() {
+            const display = document.getElementById('temp-display');
+            display.innerText = "⏳"; // 顯示載入中狀態
+
             try {
+                // 發起請求
                 const response = await fetch(API_URL);
+                
+                // 檢查回應是否成功
+                if (!response.ok) throw new Error("網路請求失敗");
+
                 const data = await response.json();
-                document.getElementById('temp-display').innerText = data.temperature;
-            } catch (e) {
-                console.error("抓取失敗", e);
-                alert("無法讀取數據，請確認 GAS 部署是否設為『所有人』");
+                console.log("成功抓取資料：", data);
+
+                // 更新畫面
+                if (data.temperature !== undefined) {
+                    display.innerText = data.temperature;
+                } else {
+                    display.innerText = "??";
+                    console.error("JSON 格式中找不到 temperature 欄位");
+                }
+
+            } catch (error) {
+                console.error("發生錯誤:", error);
+                display.innerText = "Err";
+                alert("無法讀取數據！\n請檢查 GAS 部署是否設為『所有人』，或網址是否正確。");
             }
         }
-        // 網頁開啟時先跑一次
-        fetchTemp();
+
+        // 3. 網頁開啟時自動執行一次
+        // 使用 window.addEventListener 確保 DOM 載入後才執行
+        window.addEventListener('load', () => {
+            fetchTemp();
+        });
     </script>
 </body>
-
 </html>
