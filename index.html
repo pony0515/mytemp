@@ -29,8 +29,8 @@
         const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
 
         // 定義主題 (Topic) - 建議改成你自己獨一無二的名字，避免跟別人衝突
-        const TOPIC_TEMP = "myunique/room/temp";
-        const TOPIC_LIGHT = "myunique/room/light";
+        const TOPIC_TEMP = "pony0515/room/temp";
+        const TOPIC_LIGHT = "pony0515/room/light";
 
         client.on('connect', () => {
             document.getElementById('status').innerText = "● 已連線到 MQTT";
@@ -56,3 +56,4 @@
     </script>
 </body>
 </html>
+
