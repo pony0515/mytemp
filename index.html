@@ -1,49 +1,126 @@
-<div class="bg-slate-800 p-6 rounded-2xl shadow-xl w-full max-w-sm border border-slate-700">
-    <h2 class="text-blue-400 font-bold mb-4">設備連線控制</h2>
-    
-    <div class="mb-6">
-        <label class="block text-xs text-slate-400 mb-1">目標設備 MAC 位址</label>
-        <input type="text" id="target-mac" placeholder="例如: AABBCCDDEEFF" 
-               class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-orange-400 font-mono focus:ring-2 focus:ring-blue-500 outline-none">
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 MAC 多設備控制面板</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen p-4">
+
+    <div class="bg-slate-800 p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-700">
+        <h1 class="text-2xl font-bold text-blue-400 mb-2 text-center">IoT 設備控制中心</h1>
+        <div id="mqtt-status" class="text-center text-xs text-red-500 mb-6 font-mono">MQTT 未連線</div>
+
+        <div class="space-y-4 mb-8">
+            <div>
+                <label class="block text-xs text-slate-400 mb-1 ml-1">輸入或選擇設備 MAC</label>
+                <div class="flex gap-2">
+                    <input type="text" id="target-mac" placeholder="AABBCCDDEEFF" 
+                           class="flex-1 bg-slate-900 border border-slate-600 rounded-xl px-4 py-2 text-orange-400 font-mono focus:ring-2 focus:ring-blue-500 outline-none uppercase">
+                    <select id="mac-list" onchange="document.getElementById('target-mac').value = this.value" 
+                            class="bg-slate-700 border border-slate-600 rounded-xl px-2 text-xs outline-none">
+                        <option value="">掃描中...</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div class="bg-slate-900 p-6 rounded-2xl mb-8 text-center border border-slate-700">
+            <div class="text-slate-500 text-sm mb-2 font-medium">當前設備溫度</div>
+            <div class="flex items-center justify-center gap-2">
+                <span id="temp-val" class="text-7xl font-black text-white">--</span>
+                <span class="text-2xl text-slate-500">°C</span>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4">
+            <button onclick="controlDevice('ON')" 
+                    class="bg-emerald-600 hover:bg-emerald-500 active:scale-95 py-4 rounded-2xl font-bold text-lg transition-all shadow-lg shadow-emerald-900/20">
+                開啟設備
+            </button>
+            <button onclick="controlDevice('OFF')" 
+                    class="bg-rose-600 hover:bg-rose-500 active:scale-95 py-4 rounded-2xl font-bold text-lg transition-all shadow-lg shadow-rose-900/20">
+                關閉設備
+            </button>
+        </div>
+        
+        <p class="text-[10px] text-slate-500 mt-6 text-center">主題格式: pony/esp32/{MAC}/temp</p>
     </div>
 
-    <div class="bg-slate-900 p-4 rounded-lg mb-6 text-center">
-        <div class="text-slate-500 text-xs mb-1">目前該設備溫度</div>
-        <div id="temp-val" class="text-5xl font-black text-white">--</div>
-    </div>
+    <script>
+        // --- 設定區 ---
+        // 連接到公共 Broker (WebSocket 埠號 8084)
+        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+        const ROOT_TOPIC = "pony/esp32";
+        let detectedDevices = new Set(); // 用來記錄發現的設備 MAC
 
-    <div class="grid grid-cols-2 gap-4">
-        <button onclick="controlDevice('ON')" class="bg-green-600 hover:bg-green-500 py-3 rounded-xl font-bold transition-all">開啟</button>
-        <button onclick="controlDevice('OFF')" class="bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold transition-all">關閉</button>
-    </div>
-</div>
+        // --- MQTT 事件處理 ---
+        client.on('connect', () => {
+            const statusDiv = document.getElementById('mqtt-status');
+            statusDiv.innerText = "● MQTT 已連線 (broker.emqx.io)";
+            statusDiv.className = "text-center text-xs text-emerald-500 mb-6 font-mono";
+            
+            // 訂閱萬用主題，接收所有 pony/esp32/{任何MAC}/temp 的資料
+            client.subscribe(`${ROOT_TOPIC}/+/temp`);
+        });
 
-<script>
-    // 萬用訂閱：接收 pony/esp32/ 底下的所有設備資料
-    client.on('connect', () => {
-        client.subscribe("pony/esp32/+/temp");
-    });
+        client.on('message', (topic, message) => {
+            const parts = topic.split('/');
+            const incomingMAC = parts[2]; // 取得 MAC Address
 
-    client.on('message', (topic, message) => {
-        const parts = topic.split('/');
-        const incomingMAC = parts[2]; // 取得發送資料的設備 MAC
-        const currentInputMAC = document.getElementById('target-mac').value.trim().toUpperCase();
+            // 1. 自動偵測邏輯：將新發現的 MAC 加入下拉選單
+            if (!detectedDevices.has(incomingMAC)) {
+                detectedDevices.add(incomingMAC);
+                updateMacDropdown();
+            }
 
-        // 只有當「發送資料的設備」等於「目前輸入的 MAC」時，才更新畫面
-        if (incomingMAC === currentInputMAC) {
-            document.getElementById('temp-val').innerText = message.toString();
+            // 2. 過濾邏輯：只有符合輸入框 MAC 的資料才更新畫面
+            const currentTarget = document.getElementById('target-mac').value.trim().toUpperCase();
+            if (incomingMAC === currentTarget) {
+                document.getElementById('temp-val').innerText = message.toString();
+            }
+        });
+
+        // --- 功能函式 ---
+
+        // 更新下拉選單
+        function updateMacDropdown() {
+            const select = document.getElementById('mac-list');
+            select.innerHTML = '<option value="">已偵測設備</option>';
+            detectedDevices.forEach(mac => {
+                const opt = document.createElement('option');
+                opt.value = mac;
+                opt.innerText = mac;
+                select.appendChild(opt);
+            });
         }
-    });
 
-    function controlDevice(cmd) {
-        const mac = document.getElementById('target-mac').value.trim().toUpperCase();
-        if (!mac) {
-            alert("請先輸入設備 MAC 位址");
-            return;
+        // 控制指令發送
+        function controlDevice(cmd) {
+            const mac = document.getElementById('target-mac').value.trim().toUpperCase();
+            if (!mac) {
+                alert("請輸入或選擇設備的 MAC 位址");
+                return;
+            }
+
+            const topic = `${ROOT_TOPIC}/${mac}/light`;
+            client.publish(topic, cmd, { qos: 1 }); // 使用 QoS 1 確保指令送達
+            console.log(`指令送出: ${topic} -> ${cmd}`);
+            
+            // 簡單的視覺回饋
+            const statusDiv = document.getElementById('mqtt-status');
+            statusDiv.innerText = `指令已發送至 ${mac}: ${cmd}`;
+            setTimeout(() => {
+                statusDiv.innerText = "● MQTT 已連線 (broker.emqx.io)";
+            }, 2000);
         }
-        // 動態組合成該設備的控制主題
-        const topic = `pony/esp32/${mac}/light`;
-        client.publish(topic, cmd);
-        console.log(`對設備 ${mac} 發送指令: ${cmd}`);
-    }
-</script>
+
+        // 強制大寫輸入
+        document.getElementById('target-mac').addEventListener('input', function(e) {
+            this.value = this.value.toUpperCase();
+        });
+    </script>
+</body>
+</html>
