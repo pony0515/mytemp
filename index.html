@@ -1,59 +1,49 @@
-<!DOCTYPE html>
-<html lang="zh-TW">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MQTT 即時控制面板</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
-</head>
-<body class="bg-slate-900 text-white flex items-center justify-center min-h-screen">
-
-    <div class="bg-slate-800 p-8 rounded-3xl shadow-2xl text-center w-80 border border-slate-700">
-        <h1 class="text-blue-400 font-bold mb-2">MQTT 即時監控</h1>
-        <div id="status" class="text-xs text-red-500 mb-6">連線中...</div>
-        
-        <div class="mb-8">
-            <span id="temp-display" class="text-7xl font-black text-orange-500">--</span>
-            <span class="text-slate-400 text-2xl">°C</span>
-        </div>
-        
-        <div class="grid grid-cols-2 gap-4 border-t border-slate-700 pt-6">
-            <button onclick="sendControl('ON')" class="bg-yellow-500 hover:bg-yellow-600 active:scale-95 py-3 rounded-xl font-bold">開燈</button>
-            <button onclick="sendControl('OFF')" class="bg-slate-600 hover:bg-slate-500 active:scale-95 py-3 rounded-xl font-bold">關燈</button>
-        </div>
+<div class="bg-slate-800 p-6 rounded-2xl shadow-xl w-full max-w-sm border border-slate-700">
+    <h2 class="text-blue-400 font-bold mb-4">設備連線控制</h2>
+    
+    <div class="mb-6">
+        <label class="block text-xs text-slate-400 mb-1">目標設備 MAC 位址</label>
+        <input type="text" id="target-mac" placeholder="例如: AABBCCDDEEFF" 
+               class="w-full bg-slate-900 border border-slate-600 rounded-lg px-3 py-2 text-orange-400 font-mono focus:ring-2 focus:ring-blue-500 outline-none">
     </div>
 
-    <script>
-        // 使用 WebSocket 安全連線到公共 Broker
-        const client = mqtt.connect('wss://broker.emqx.io:8084/mqtt');
+    <div class="bg-slate-900 p-4 rounded-lg mb-6 text-center">
+        <div class="text-slate-500 text-xs mb-1">目前該設備溫度</div>
+        <div id="temp-val" class="text-5xl font-black text-white">--</div>
+    </div>
 
-        // 定義主題 (Topic) - 建議改成你自己獨一無二的名字，避免跟別人衝突
-        const TOPIC_TEMP = "pony0515/room/temp";
-        const TOPIC_LIGHT = "pony0515/room/light";
+    <div class="grid grid-cols-2 gap-4">
+        <button onclick="controlDevice('ON')" class="bg-green-600 hover:bg-green-500 py-3 rounded-xl font-bold transition-all">開啟</button>
+        <button onclick="controlDevice('OFF')" class="bg-red-600 hover:bg-red-500 py-3 rounded-xl font-bold transition-all">關閉</button>
+    </div>
+</div>
 
-        client.on('connect', () => {
-            document.getElementById('status').innerText = "● 已連線到 MQTT";
-            document.getElementById('status').classList.remove('text-red-500');
-            document.getElementById('status').classList.add('text-green-500');
-            
-            // 訂閱溫度主題，這樣 ESP32 傳資料過來我們才收得到
-            client.subscribe(TOPIC_TEMP);
-        });
+<script>
+    // 萬用訂閱：接收 pony/esp32/ 底下的所有設備資料
+    client.on('connect', () => {
+        client.subscribe("pony/esp32/+/temp");
+    });
 
-        // 接收訊息
-        client.on('message', (topic, message) => {
-            if (topic === TOPIC_TEMP) {
-                document.getElementById('temp-display').innerText = message.toString();
-            }
-        });
+    client.on('message', (topic, message) => {
+        const parts = topic.split('/');
+        const incomingMAC = parts[2]; // 取得發送資料的設備 MAC
+        const currentInputMAC = document.getElementById('target-mac').value.trim().toUpperCase();
 
-        // 傳送指令給 ESP32
-        function sendControl(cmd) {
-            client.publish(TOPIC_LIGHT, cmd);
-            console.log("已送出指令:", cmd);
+        // 只有當「發送資料的設備」等於「目前輸入的 MAC」時，才更新畫面
+        if (incomingMAC === currentInputMAC) {
+            document.getElementById('temp-val').innerText = message.toString();
         }
-    </script>
-</body>
-</html>
+    });
 
+    function controlDevice(cmd) {
+        const mac = document.getElementById('target-mac').value.trim().toUpperCase();
+        if (!mac) {
+            alert("請先輸入設備 MAC 位址");
+            return;
+        }
+        // 動態組合成該設備的控制主題
+        const topic = `pony/esp32/${mac}/light`;
+        client.publish(topic, cmd);
+        console.log(`對設備 ${mac} 發送指令: ${cmd}`);
+    }
+</script>
